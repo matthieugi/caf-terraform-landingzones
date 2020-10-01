@@ -1,0 +1,68 @@
+#
+# Copyright (c) Microsoft Corporation
+# Licensed under the MIT License.
+#
+
+name: hub
+
+on:
+  push:
+    branches:
+      - vnext
+    paths-ignore:
+      - 'documentation/**'
+      - '_pictures/**'
+      - 'README.md'
+      - 'CHANGELOG.md'
+  schedule:
+    - cron:  '0 3 * * *'
+
+  env:
+    TF_CLI_ARGS: '-no-color'
+    TF_CLI_ARGS_destroy: '-auto-approve -refresh=false'
+    ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+    ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+    ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+    ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+
+jobs:
+  level0:
+    name: level0
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+          region: ["westus2"]
+          convention: ["random"]
+
+    container:
+      image: aztfmod/rover:2009.0210
+      options: --user 0
+
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Login azure
+        run: |
+          az login --service-principal -u '${{ env.ARM_CLIENT_ID }}' -p '${{ env.ARM_CLIENT_SECRET }}' --tenant '${{ env.ARM_TENANT_ID }}'
+          az account set -s  ${{ env.ARM_SUBSCRIPTION_ID }}
+
+          echo "local user: $(whoami)"
+      
+      - name: Locate launchpad
+        run: |
+          ln -s ${GITHUB_WORKSPACE} /tf/caf
+
+          id=$(az storage account list --query "[?tags.tfstate=='level0' && tags.environment=='${{ github.run_id }}']" -o json | jq -r .[0].id)
+
+          if [ "${id}" == "null" ]; then
+            /tf/rover/rover.sh -lz /tf/caf/caf-terraform-landingzones/landingzones/launchpad -a apply \
+              -launchpad \
+              --environment ${{ github.run_id }} \
+              '-var prefix=g${{ github.run_id }}' \
+              '-var location=${{ matrix.region }}' \
+              '-var convention=${{ matrix.convention }}' \
+              '-var tags={testing_job_id="${{ github.run_id }}"}'
+          fi

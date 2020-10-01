@@ -8,7 +8,7 @@ name: hub
 on:
   push:
     branches:
-      - vnext
+      - initLandingZone
     paths-ignore:
       - 'documentation/**'
       - '_pictures/**'

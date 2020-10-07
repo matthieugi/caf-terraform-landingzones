@@ -15,8 +15,7 @@ default_region = "region1"
 
 # All regions supported by this launchpad
 regions = {
-  region1 = "southeastasia"
-  region2 = "eastasia"
+  region1 = "francecentral"
 }
 
 # Configuration of the launchpad elements keys 
